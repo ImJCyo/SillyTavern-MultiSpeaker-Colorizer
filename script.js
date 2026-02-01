@@ -89,7 +89,7 @@ eventSource.on(event_types.APP_READY, async () => {
     wrapper.className = 'msc-settings-wrapper';
     wrapper.innerHTML = `
         <div class="inline-drawer">
-            <div class="inline-drawer-header"><b>Multi-Speaker Colorizer (V12)</b></div>
+            <div class="inline-drawer-header"><b>Multi-Speaker Colorizer</b></div>
             <div class="inline-drawer-content" style="padding:15px; border: 1px solid #444; background: rgba(0,0,0,0.1);">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
                     <label style="cursor:pointer;"><input type="checkbox" id="msc-enabled"> <b>Enable Extension</b></label>
@@ -159,3 +159,4 @@ eventSource.on(event_types.APP_READY, async () => {
   setInterval(applyColoring, 3000);
 
 });
+
