@@ -1,0 +1,43 @@
+<div class="msc-settings">
+    <div class="inline-drawer">
+        <div class="inline-drawer-header">
+            <span class="inline-drawer-icon fa-solid fa-palette"></span>
+            <b>Multi-Speaker Colorizer</b>
+            <div class="inline-drawer-header-spacer"></div>
+            <i class="inline-drawer-icon fa-solid fa-chevron-down"></i>
+        </div>
+        <div class="inline-drawer-content">
+            <div class="msc-options" style="display: flex; flex-direction: column; gap: 10px; padding: 10px;">
+                
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                    <input type="checkbox" id="msc-enabled" />
+                    <span>Enabled</span>
+                </label>
+
+                <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.9em;">
+                        <span>Global Brightness</span>
+                        <span id="lightness-val">100%</span>
+                    </div>
+                    <input type="range" id="msc-lightness" min="50" max="250" value="100" style="width: 100%;" />
+                </div>
+
+                <hr style="width: 100%; border: 0; border-top: 1px solid var(--bracket-color); opacity: 0.3;" />
+
+                <div class="msc-overrides-section">
+                    <div style="margin-bottom: 8px; font-weight: bold; font-size: 0.9em; opacity: 0.8;">
+                        Character Colors:
+                    </div>
+                    <div id="color-overrides" style="display: flex; flex-direction: column; gap: 5px;"></div>
+                    <button id="add-override" class="menu_button" style="margin-top: 10px; width: 100%;">
+                        <i class="fa-solid fa-plus"></i> Add Character
+                    </button>
+                </div>
+                
+                <div style="font-size: 0.8em; opacity: 0.6; font-style: italic; margin-top: 5px;">
+                    Note: Add a character name (e.g. "Ellie") to start tracking them.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
