@@ -7,27 +7,26 @@ const { eventSource, event_types, extensionSettings, saveSettingsDebounced } = S
 eventSource.on(event_types.APP_READY, async () => {
   const MODULE_NAME = 'MultiSpeakerColorizer';
 
-  // Initialize Settings with defaults
-  if (!extensionSettings[MODULE_NAME]) {
-    extensionSettings[MODULE_NAME] = {
-      enabled: true,
-      lightness: 135,
-  //    colorOverrides: { 'Ellie': '#4ade80', 'Lumine': '#66ffcc', 'Eileen': '#4ade80' }
-    };
-    saveSettingsDebounced();
-  }
+  if (!extensionSettings[MODULE_NAME]) extensionSettings[MODULE_NAME] = {};
   const settings = extensionSettings[MODULE_NAME];
 
-  function applyColoring() {
-    // Corrected boolean check for the toggle
-    if (settings.enabled === false || settings.enabled === "false") return;
+  if (settings.enabled === undefined) settings.enabled = true;
+  if (settings.lightness === undefined) settings.lightness = 135;
+  if (!settings.profiles) {
+      settings.profiles = { 'Default': { 'Ellie': '#4ade80', 'Lumine': '#66ffcc', 'Eileen': '#4ade80' } };
+  }
+  if (!settings.activeProfile || !settings.profiles[settings.activeProfile]) {
+      settings.activeProfile = Object.keys(settings.profiles)[0];
+  }
 
+  function applyColoring() {
+    if (settings.enabled === false || settings.enabled === "false") return;
+    const colorMap = settings.profiles[settings.activeProfile] || {};
+    const names = Object.keys(colorMap);
     const messages = document.querySelectorAll('.mes:not([is_user="true"]) .mes_text');
     
     messages.forEach((container) => {
-        const names = Object.keys(settings.colorOverrides);
         let activeSpeaker = null;
-
         const fullContent = container.innerText.toLowerCase();
         let firstPos = Infinity;
         names.forEach(name => {
@@ -39,23 +38,16 @@ eventSource.on(event_types.APP_READY, async () => {
         });
 
         const blocks = container.querySelectorAll('p, li, blockquote, em');
-        
         blocks.forEach(block => {
             names.forEach(name => {
-                if (block.innerText.toLowerCase().includes(name.toLowerCase())) {
-                    activeSpeaker = name;
-                }
+                if (block.innerText.toLowerCase().includes(name.toLowerCase())) activeSpeaker = name;
             });
-
             if (!activeSpeaker) return;
 
-            // Target the <q> tags
-            const quotes = block.querySelectorAll('q');
-            quotes.forEach(q => {
-                q.style.cssText = `color: ${settings.colorOverrides[activeSpeaker]} !important; filter: brightness(${settings.lightness}%); font-weight: inherit;`;
+            block.querySelectorAll('q').forEach(q => {
+                q.style.cssText = `color: ${colorMap[activeSpeaker]} !important; filter: brightness(${settings.lightness}%); font-weight: inherit;`;
             });
 
-            // Standard Quote Fallback
             const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT, null, false);
             let node;
             while(node = walker.nextNode()) {
@@ -67,7 +59,7 @@ eventSource.on(event_types.APP_READY, async () => {
                         if (part.startsWith('"') && part.endsWith('"')) {
                             const span = document.createElement('span');
                             span.className = "msc-quote";
-                            span.style.cssText = `color: ${settings.colorOverrides[activeSpeaker]} !important; filter: brightness(${settings.lightness}%);`;
+                            span.style.cssText = `color: ${colorMap[activeSpeaker]} !important; filter: brightness(${settings.lightness}%);`;
                             span.textContent = part;
                             fragment.appendChild(span);
                         } else {
@@ -91,37 +83,69 @@ eventSource.on(event_types.APP_READY, async () => {
         <div class="inline-drawer">
             <div class="inline-drawer-header"><b>Multi-Speaker Colorizer</b></div>
             <div class="inline-drawer-content" style="padding:15px; border: 1px solid #444; background: rgba(0,0,0,0.1);">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                    <label style="cursor:pointer;"><input type="checkbox" id="msc-enabled"> <b>Enable Extension</b></label>
+                
+                <div style="margin-bottom:15px;">
+                    <label><b>Active Profile:</b></label>
+                    <div style="display:flex; gap:5px; margin-top:5px;">
+                        <select id="msc-profile-sel" class="text_pole" style="flex:1; background:#111; color:white;"></select>
+                        <button id="msc-add-profile" class="menu_button" title="New Profile">+</button>
+                        <button id="msc-rename-profile" class="menu_button" title="Rename Profile">✎</button>
+                        <button id="msc-del-profile" class="menu_button" title="Delete Profile" style="background:#622;">&times;</button>
+                    </div>
+                </div>
+
+                <div style="display:flex; gap:5px; margin-bottom:15px;">
+                    <button id="msc-export" class="menu_button" style="flex:1;" title="Export current profile only">Export Profile</button>
+                    <button id="msc-import" class="menu_button" style="flex:1;" title="Import a new profile">Import Profile</button>
+                    <input type="file" id="msc-import-file" style="display:none;" accept=".json">
+                </div>
+
+                <div style="margin-bottom:15px;">
+                    <label style="cursor:pointer;"><input type="checkbox" id="msc-enabled"> <b>Enable Colorizer</b></label>
                 </div>
                 
                 <div style="margin-bottom:15px;">
                     <label><b>Global Lightness:</b> <span id="msc-lightness-val">${settings.lightness}</span>%</label>
-                    <input type="range" id="msc-lightness" min="50" max="300" value="${settings.lightness}" style="width:100%; accent-color: #4ade80;">
+                    <input type="range" id="msc-lightness" min="50" max="300" value="${settings.lightness}" style="width:100%;">
                 </div>
 
                 <div id="color-overrides"></div>
                 <button id="add-override" class="menu_button" style="width:100%; margin-top:10px;">+ Add Character</button>
+                <button id="msc-save-manual" class="menu_button" style="width:100%; margin-top:10px; background:var(--bracket-color);">Manual Save All</button>
             </div>
         </div>`;
     
     extensionsSettings.appendChild(wrapper);
 
-    const update = () => {
+    const refreshRows = () => {
+        const list = document.getElementById('color-overrides');
+        list.innerHTML = '';
+        const currentData = settings.profiles[settings.activeProfile] || {};
+        Object.entries(currentData).forEach(([n, c]) => addRow(n, c));
+    };
+
+    const refreshProfileList = () => {
+        const sel = document.getElementById('msc-profile-sel');
+        sel.innerHTML = '';
+        Object.keys(settings.profiles).forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p; opt.textContent = p;
+            if (p === settings.activeProfile) opt.selected = true;
+            sel.appendChild(opt);
+        });
+    };
+
+    const save = () => {
+        const currentData = {};
+        wrapper.querySelectorAll('.msc-row').forEach(r => {
+            const name = r.querySelector('.name-input').value.trim();
+            if (name) currentData[name] = r.querySelector('.color-input').value;
+        });
+        settings.profiles[settings.activeProfile] = currentData;
         settings.enabled = document.getElementById('msc-enabled').checked;
         settings.lightness = document.getElementById('msc-lightness').value;
         document.getElementById('msc-lightness-val').textContent = settings.lightness;
-
-        settings.colorOverrides = {};
-        wrapper.querySelectorAll('.msc-row').forEach(r => {
-            const name = r.querySelector('.name-input').value.trim();
-            if (name) settings.colorOverrides[name] = r.querySelector('.color-input').value;
-        });
-
         saveSettingsDebounced();
-        // Visual Reset
-        document.querySelectorAll('.msc-quote').forEach(el => el.replaceWith(el.textContent));
-        document.querySelectorAll('q').forEach(el => el.style.color = "");
         applyColoring();
     };
 
@@ -129,34 +153,81 @@ eventSource.on(event_types.APP_READY, async () => {
         const row = document.createElement('div');
         row.className = 'msc-row';
         row.style = "display: flex; gap: 8px; margin-bottom: 8px; align-items: center;";
-        row.innerHTML = `
-            <input type="text" class="name-input" value="${n}" style="flex:1; background: rgba(0,0,0,0.3); color: white; border: 1px solid #666; padding: 5px;" />
-            <input type="color" class="color-input" value="${c}" style="width:40px; height:32px; border:none; background:transparent;" />
-            <button class="menu_button remove-row" style="padding: 2px 8px;">&times;</button>`;
-        row.querySelector('.remove-row').onclick = () => { row.remove(); update(); };
-        row.querySelectorAll('input').forEach(i => i.onchange = update);
-        wrapper.querySelector('#color-overrides').appendChild(row);
+        row.innerHTML = `<input type="text" class="name-input" value="${n}" style="flex:1; background: rgba(0,0,0,0.3); color: white; border: 1px solid #666; padding: 5px;" /><input type="color" class="color-input" value="${c}" style="width:40px; height:32px; border:none; background:transparent;" /><button class="menu_button remove-row">&times;</button>`;
+        row.querySelector('.remove-row').onclick = () => { row.remove(); save(); };
+        row.querySelectorAll('input').forEach(i => i.onchange = save);
+        document.getElementById('color-overrides').appendChild(row);
     };
 
-    Object.entries(settings.colorOverrides).forEach(([n, c]) => addRow(n, c));
-    document.getElementById('add-override').onclick = () => addRow();
-    document.getElementById('msc-enabled').checked = settings.enabled;
-    document.getElementById('msc-enabled').onchange = update;
-    document.getElementById('msc-lightness').oninput = update;
+    document.getElementById('msc-profile-sel').onchange = (e) => { settings.activeProfile = e.target.value; refreshRows(); save(); };
+    document.getElementById('msc-add-profile').onclick = () => {
+        const name = prompt("Profile Name:");
+        if (name && !settings.profiles[name]) { settings.profiles[name] = {}; settings.activeProfile = name; refreshProfileList(); refreshRows(); save(); }
+    };
+    document.getElementById('msc-rename-profile').onclick = () => {
+        const oldName = settings.activeProfile;
+        const newName = prompt("Rename profile to:", oldName);
+        if (newName && newName !== oldName) {
+            settings.profiles[newName] = settings.profiles[oldName];
+            delete settings.profiles[oldName];
+            settings.activeProfile = newName;
+            refreshProfileList(); save();
+        }
+    };
+    document.getElementById('msc-del-profile').onclick = () => {
+        if (Object.keys(settings.profiles).length <= 1) return;
+        if (confirm(`Delete "${settings.activeProfile}"?`)) { delete settings.profiles[settings.activeProfile]; settings.activeProfile = Object.keys(settings.profiles)[0]; refreshProfileList(); refreshRows(); save(); }
+    };
+
+    // --- Targeted Import/Export ---
+    document.getElementById('msc-export').onclick = () => {
+        const profileToExport = settings.profiles[settings.activeProfile];
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(profileToExport, null, 4));
+        const downloadAnchorNode = document.createElement('a');
+        downloadAnchorNode.setAttribute("href", dataStr);
+        downloadAnchorNode.setAttribute("download", `msc_profile_${settings.activeProfile}.json`);
+        document.body.appendChild(downloadAnchorNode);
+        downloadAnchorNode.click();
+        downloadAnchorNode.remove();
+    };
     
+    document.getElementById('msc-import').onclick = () => document.getElementById('msc-import-file').click();
+    document.getElementById('msc-import-file').onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const importedData = JSON.parse(event.target.result);
+                // Basic validation: Check if the imported JSON is a name-to-color map
+                if (typeof importedData !== 'object' || Array.isArray(importedData)) throw new Error();
+                
+                const defaultName = file.name.replace('.json', '').replace('msc_profile_', '');
+                const profileName = prompt("Imported profile found! Name this profile:", defaultName) || defaultName;
+                
+                settings.profiles[profileName] = importedData;
+                settings.activeProfile = profileName;
+                
+                refreshProfileList(); refreshRows(); save();
+                alert(`Profile "${profileName}" imported and selected!`);
+            } catch (err) { alert("Error: Invalid Profile JSON."); }
+        };
+        reader.readAsText(file);
+    };
+
+    refreshProfileList(); refreshRows();
+    document.getElementById('add-override').onclick = () => addRow();
+    document.getElementById('msc-save-manual').onclick = () => { save(); alert("Settings saved!"); };
+    document.getElementById('msc-enabled').checked = settings.enabled;
+    document.getElementById('msc-enabled').onchange = save;
+    document.getElementById('msc-lightness').oninput = save;
     wrapper.querySelector('.inline-drawer-header').onclick = () => $(wrapper.querySelector('.inline-drawer-content')).slideToggle(200);
   };
 
   const observer = new MutationObserver(() => {
-      if (document.querySelector('#extensions_settings')) {
-          renderUI();
-          observer.disconnect();
-      }
+      if (document.querySelector('#extensions_settings')) { renderUI(); observer.disconnect(); }
   });
   observer.observe(document.body, { childList: true, subtree: true });
-
   eventSource.on(event_types.CHARACTER_MESSAGE_RENDERED, () => setTimeout(applyColoring, 500));
-  setInterval(applyColoring, 3000);
-
+  setInterval(applyColoring, 3500);
 });
-
