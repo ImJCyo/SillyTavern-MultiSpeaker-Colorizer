@@ -12,7 +12,7 @@ eventSource.on(event_types.APP_READY, async () => {
     extensionSettings[MODULE_NAME] = {
       enabled: true,
       lightness: 135,
-      colorOverrides: { 'Ellie': '#4ade80', 'Lumine': '#66ffcc', 'Eileen': '#4ade80' }
+  //    colorOverrides: { 'Ellie': '#4ade80', 'Lumine': '#66ffcc', 'Eileen': '#4ade80' }
     };
     saveSettingsDebounced();
   }
@@ -49,7 +49,7 @@ eventSource.on(event_types.APP_READY, async () => {
 
             if (!activeSpeaker) return;
 
-            // Target the <q> tags found in your Inspector
+            // Target the <q> tags
             const quotes = block.querySelectorAll('q');
             quotes.forEach(q => {
                 q.style.cssText = `color: ${settings.colorOverrides[activeSpeaker]} !important; filter: brightness(${settings.lightness}%); font-weight: inherit;`;
@@ -157,4 +157,5 @@ eventSource.on(event_types.APP_READY, async () => {
 
   eventSource.on(event_types.CHARACTER_MESSAGE_RENDERED, () => setTimeout(applyColoring, 500));
   setInterval(applyColoring, 3000);
+
 });
