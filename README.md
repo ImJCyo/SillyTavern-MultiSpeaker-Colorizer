@@ -5,6 +5,7 @@ A robust, lightweight JavaScript extension for SillyTavern designed to colorize 
 ## 🚀 Features
 
 - **💎 Zero Token Cost:** This extension is entirely client-side. It does not add anything to your prompt or context window, meaning you get beautiful colorization without sacrificing performance or memory.
+- **⚡ High-Performance Lazy Loading:** Uses an `IntersectionObserver` to only colorize messages as they scroll into view. This keeps the UI snappy even in chats with thousands of messages.
 - **Multi-Character Support:** Assign unique hex colors to different characters you specify by name.
 - **Profile Management:** Create, rename, and switch between different color profiles for different world-states or RP cards.
 - **Semantic Tag Awareness:** Specifically designed to work with SillyTavern’s `<q>` (Quotation) tags and nested `<em>` (italics) tags.
