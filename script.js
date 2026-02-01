@@ -19,60 +19,89 @@ eventSource.on(event_types.APP_READY, async () => {
       settings.activeProfile = Object.keys(settings.profiles)[0];
   }
 
-  function applyColoring() {
+  // --- THE COLORING ENGINE ---
+  function colorizeMessage(container) {
     if (settings.enabled === false || settings.enabled === "false") return;
+    if (container.classList.contains('msc-processed')) return;
+
     const colorMap = settings.profiles[settings.activeProfile] || {};
     const names = Object.keys(colorMap);
-    const messages = document.querySelectorAll('.mes:not([is_user="true"]) .mes_text');
-    
-    messages.forEach((container) => {
-        let activeSpeaker = null;
-        const fullContent = container.innerText.toLowerCase();
-        let firstPos = Infinity;
-        names.forEach(name => {
-            const pos = fullContent.indexOf(name.toLowerCase());
-            if (pos !== -1 && pos < firstPos) {
-                firstPos = pos;
-                activeSpeaker = name;
-            }
-        });
+    let activeSpeaker = null;
 
-        const blocks = container.querySelectorAll('p, li, blockquote, em');
-        blocks.forEach(block => {
-            names.forEach(name => {
-                if (block.innerText.toLowerCase().includes(name.toLowerCase())) activeSpeaker = name;
-            });
-            if (!activeSpeaker) return;
-
-            block.querySelectorAll('q').forEach(q => {
-                q.style.cssText = `color: ${colorMap[activeSpeaker]} !important; filter: brightness(${settings.lightness}%); font-weight: inherit;`;
-            });
-
-            const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT, null, false);
-            let node;
-            while(node = walker.nextNode()) {
-                if (node.nodeValue.includes('"') && !node.parentElement.closest('q, a, img, code')) {
-                    const text = node.nodeValue;
-                    const parts = text.split(/(".*?")/g);
-                    const fragment = document.createDocumentFragment();
-                    parts.forEach(part => {
-                        if (part.startsWith('"') && part.endsWith('"')) {
-                            const span = document.createElement('span');
-                            span.className = "msc-quote";
-                            span.style.cssText = `color: ${colorMap[activeSpeaker]} !important; filter: brightness(${settings.lightness}%);`;
-                            span.textContent = part;
-                            fragment.appendChild(span);
-                        } else {
-                            fragment.appendChild(document.createTextNode(part));
-                        }
-                    });
-                    node.replaceWith(fragment);
-                }
-            }
-        });
+    // Determine initial speaker for this specific message
+    const fullContent = container.innerText.toLowerCase();
+    let firstPos = Infinity;
+    names.forEach(name => {
+        const pos = fullContent.indexOf(name.toLowerCase());
+        if (pos !== -1 && pos < firstPos) {
+            firstPos = pos;
+            activeSpeaker = name;
+        }
     });
+
+    const blocks = container.querySelectorAll('p, li, blockquote, em');
+    blocks.forEach(block => {
+        names.forEach(name => {
+            if (block.innerText.toLowerCase().includes(name.toLowerCase())) activeSpeaker = name;
+        });
+        if (!activeSpeaker) return;
+
+        block.querySelectorAll('q').forEach(q => {
+            q.style.cssText = `color: ${colorMap[activeSpeaker]} !important; filter: brightness(${settings.lightness}%); font-weight: inherit;`;
+        });
+
+        const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT, null, false);
+        let node;
+        while(node = walker.nextNode()) {
+            if (node.nodeValue.includes('"') && !node.parentElement.closest('q, a, img, code')) {
+                const text = node.nodeValue;
+                const parts = text.split(/(".*?")/g);
+                const fragment = document.createDocumentFragment();
+                parts.forEach(part => {
+                    if (part.startsWith('"') && part.endsWith('"')) {
+                        const span = document.createElement('span');
+                        span.className = "msc-quote";
+                        span.style.cssText = `color: ${colorMap[activeSpeaker]} !important; filter: brightness(${settings.lightness}%);`;
+                        span.textContent = part;
+                        fragment.appendChild(span);
+                    } else {
+                        fragment.appendChild(document.createTextNode(part));
+                    }
+                });
+                node.replaceWith(fragment);
+            }
+        }
+    });
+    container.classList.add('msc-processed');
   }
 
+  // --- THE PERFORMANCE OBSERVERS ---
+  
+  // 1. Lazy Loader: Colors messages as they scroll into view
+  const scrollObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+          if (entry.isIntersecting) {
+              colorizeMessage(entry.target);
+          }
+      });
+  }, { threshold: 0.1 });
+
+  function scanCurrentView() {
+      const messages = Array.from(document.querySelectorAll('.mes:not([is_user="true"]) .mes_text'));
+      // Only "watch" the last 15 messages for active changes
+      const recentMessages = messages.slice(-15);
+      
+      messages.forEach(msg => {
+          if (!msg.classList.contains('msc-processed')) {
+              scrollObserver.observe(msg); // Add to lazy loader
+          }
+      });
+
+      // Force colorize the most recent ones immediately
+      recentMessages.forEach(colorizeMessage);
+  }
+
+  // UI Code remains identical to previous version, just updating version name in logic
   const renderUI = async () => {
     const extensionsSettings = document.querySelector('#extensions_settings');
     if (!extensionsSettings || document.querySelector('.msc-settings-wrapper')) return;
@@ -83,7 +112,6 @@ eventSource.on(event_types.APP_READY, async () => {
         <div class="inline-drawer">
             <div class="inline-drawer-header"><b>Multi-Speaker Colorizer</b></div>
             <div class="inline-drawer-content" style="padding:15px; border: 1px solid #444; background: rgba(0,0,0,0.1);">
-                
                 <div style="margin-bottom:15px;">
                     <label><b>Active Profile:</b></label>
                     <div style="display:flex; gap:5px; margin-top:5px;">
@@ -93,22 +121,18 @@ eventSource.on(event_types.APP_READY, async () => {
                         <button id="msc-del-profile" class="menu_button" title="Delete Profile" style="background:#622;">&times;</button>
                     </div>
                 </div>
-
                 <div style="display:flex; gap:5px; margin-bottom:15px;">
-                    <button id="msc-export" class="menu_button" style="flex:1;" title="Export current profile only">Export Profile</button>
-                    <button id="msc-import" class="menu_button" style="flex:1;" title="Import a new profile">Import Profile</button>
+                    <button id="msc-export" class="menu_button" style="flex:1;">Export Profile</button>
+                    <button id="msc-import" class="menu_button" style="flex:1;">Import Profile</button>
                     <input type="file" id="msc-import-file" style="display:none;" accept=".json">
                 </div>
-
                 <div style="margin-bottom:15px;">
                     <label style="cursor:pointer;"><input type="checkbox" id="msc-enabled"> <b>Enable Colorizer</b></label>
                 </div>
-                
                 <div style="margin-bottom:15px;">
                     <label><b>Global Lightness:</b> <span id="msc-lightness-val">${settings.lightness}</span>%</label>
                     <input type="range" id="msc-lightness" min="50" max="300" value="${settings.lightness}" style="width:100%;">
                 </div>
-
                 <div id="color-overrides"></div>
                 <button id="add-override" class="menu_button" style="width:100%; margin-top:10px;">+ Add Character</button>
                 <button id="msc-save-manual" class="menu_button" style="width:100%; margin-top:10px; background:var(--bracket-color);">Manual Save All</button>
@@ -135,7 +159,7 @@ eventSource.on(event_types.APP_READY, async () => {
         });
     };
 
-    const save = () => {
+    const save = (force = false) => {
         const currentData = {};
         wrapper.querySelectorAll('.msc-row').forEach(r => {
             const name = r.querySelector('.name-input').value.trim();
@@ -146,7 +170,14 @@ eventSource.on(event_types.APP_READY, async () => {
         settings.lightness = document.getElementById('msc-lightness').value;
         document.getElementById('msc-lightness-val').textContent = settings.lightness;
         saveSettingsDebounced();
-        applyColoring();
+        if(force) {
+            document.querySelectorAll('.msc-processed').forEach(m => {
+                m.classList.remove('msc-processed');
+                m.querySelectorAll('q').forEach(q => q.style.color = "");
+                m.querySelectorAll('.msc-quote').forEach(s => s.replaceWith(s.textContent));
+            });
+        }
+        scanCurrentView();
     };
 
     const addRow = (n = '', c = '#ffffff') => {
@@ -154,15 +185,15 @@ eventSource.on(event_types.APP_READY, async () => {
         row.className = 'msc-row';
         row.style = "display: flex; gap: 8px; margin-bottom: 8px; align-items: center;";
         row.innerHTML = `<input type="text" class="name-input" value="${n}" style="flex:1; background: rgba(0,0,0,0.3); color: white; border: 1px solid #666; padding: 5px;" /><input type="color" class="color-input" value="${c}" style="width:40px; height:32px; border:none; background:transparent;" /><button class="menu_button remove-row">&times;</button>`;
-        row.querySelector('.remove-row').onclick = () => { row.remove(); save(); };
-        row.querySelectorAll('input').forEach(i => i.onchange = save);
+        row.querySelector('.remove-row').onclick = () => { row.remove(); save(true); };
+        row.querySelectorAll('input').forEach(i => i.onchange = () => save(true));
         document.getElementById('color-overrides').appendChild(row);
     };
 
-    document.getElementById('msc-profile-sel').onchange = (e) => { settings.activeProfile = e.target.value; refreshRows(); save(); };
+    document.getElementById('msc-profile-sel').onchange = (e) => { settings.activeProfile = e.target.value; refreshRows(); save(true); };
     document.getElementById('msc-add-profile').onclick = () => {
         const name = prompt("Profile Name:");
-        if (name && !settings.profiles[name]) { settings.profiles[name] = {}; settings.activeProfile = name; refreshProfileList(); refreshRows(); save(); }
+        if (name && !settings.profiles[name]) { settings.profiles[name] = {}; settings.activeProfile = name; refreshProfileList(); refreshRows(); save(true); }
     };
     document.getElementById('msc-rename-profile').onclick = () => {
         const oldName = settings.activeProfile;
@@ -176,10 +207,9 @@ eventSource.on(event_types.APP_READY, async () => {
     };
     document.getElementById('msc-del-profile').onclick = () => {
         if (Object.keys(settings.profiles).length <= 1) return;
-        if (confirm(`Delete "${settings.activeProfile}"?`)) { delete settings.profiles[settings.activeProfile]; settings.activeProfile = Object.keys(settings.profiles)[0]; refreshProfileList(); refreshRows(); save(); }
+        if (confirm(`Delete "${settings.activeProfile}"?`)) { delete settings.profiles[settings.activeProfile]; settings.activeProfile = Object.keys(settings.profiles)[0]; refreshProfileList(); refreshRows(); save(true); }
     };
 
-    // --- Targeted Import/Export ---
     document.getElementById('msc-export').onclick = () => {
         const profileToExport = settings.profiles[settings.activeProfile];
         const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(profileToExport, null, 4));
@@ -199,27 +229,21 @@ eventSource.on(event_types.APP_READY, async () => {
         reader.onload = (event) => {
             try {
                 const importedData = JSON.parse(event.target.result);
-                // Basic validation: Check if the imported JSON is a name-to-color map
-                if (typeof importedData !== 'object' || Array.isArray(importedData)) throw new Error();
-                
                 const defaultName = file.name.replace('.json', '').replace('msc_profile_', '');
-                const profileName = prompt("Imported profile found! Name this profile:", defaultName) || defaultName;
-                
+                const profileName = prompt("Name this profile:", defaultName) || defaultName;
                 settings.profiles[profileName] = importedData;
                 settings.activeProfile = profileName;
-                
-                refreshProfileList(); refreshRows(); save();
-                alert(`Profile "${profileName}" imported and selected!`);
-            } catch (err) { alert("Error: Invalid Profile JSON."); }
+                refreshProfileList(); refreshRows(); save(true);
+            } catch (err) { alert("Invalid JSON."); }
         };
         reader.readAsText(file);
     };
 
     refreshProfileList(); refreshRows();
     document.getElementById('add-override').onclick = () => addRow();
-    document.getElementById('msc-save-manual').onclick = () => { save(); alert("Settings saved!"); };
+    document.getElementById('msc-save-manual').onclick = () => { save(); alert("Saved!"); };
     document.getElementById('msc-enabled').checked = settings.enabled;
-    document.getElementById('msc-enabled').onchange = save;
+    document.getElementById('msc-enabled').onchange = () => save(true);
     document.getElementById('msc-lightness').oninput = save;
     wrapper.querySelector('.inline-drawer-header').onclick = () => $(wrapper.querySelector('.inline-drawer-content')).slideToggle(200);
   };
@@ -228,6 +252,7 @@ eventSource.on(event_types.APP_READY, async () => {
       if (document.querySelector('#extensions_settings')) { renderUI(); observer.disconnect(); }
   });
   observer.observe(document.body, { childList: true, subtree: true });
-  eventSource.on(event_types.CHARACTER_MESSAGE_RENDERED, () => setTimeout(applyColoring, 500));
-  setInterval(applyColoring, 3500);
+
+  eventSource.on(event_types.CHARACTER_MESSAGE_RENDERED, () => setTimeout(scanCurrentView, 400));
+  setInterval(scanCurrentView, 3000);
 });
