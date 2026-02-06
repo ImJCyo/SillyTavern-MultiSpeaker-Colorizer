@@ -9,7 +9,6 @@ A robust, lightweight JavaScript extension for SillyTavern designed to colorize 
 - **Multi-Character Support:** Assign unique hex colors to different characters you specify by name.
 - **Profile Management:** Create, rename, and switch between different color profiles for different world-states or RP cards.
 - **Semantic Tag Awareness:** Specifically designed to work with SillyTavern’s `<q>` (Quotation) tags and nested `<em>` (italics) tags.
-- **Global Lightness Slider:** Adjust the brightness of all active colors (50% to 300%) via a built-in UI slider to match your theme.
 - **Contextual Memory:** Intelligently tracks the speaker across paragraphs, ensuring dialogue remains colored even if a name isn't mentioned in every block.
 
 ## 🛠️ Installation
@@ -25,10 +24,9 @@ The easiest way to install this extension is directly through SillyTavern:
 
 ## ⚙️ Configuration
 
-- **Enable/Disable:** Toggle the entire extension on or off without losing your character list.
-- **Global Lightness:** Use the slider to increase visibility on dark themes or reduce "neon" effects on lighter backgrounds.
+- **Enable/Disable Logging:** Toggle Console (F12) logging on or off.
 - **Add Character:** Enter the character's name exactly as it appears in the chat and select a color.
-- **Manual Save:** Use the "Manual Save All" button to immediately commit all profile changes to SillyTavern's storage.
+- **Apply & Save:** Use the "Apply & Save" button to immediately commit all profile changes to SillyTavern's storage, and scan back 3 messages to apply your new color choices.
 
 ## 📁 Profile Sharing (Import/Export)
 
