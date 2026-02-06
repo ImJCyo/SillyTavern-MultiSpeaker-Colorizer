@@ -1,12 +1,13 @@
 {
   "display_name": "MultiSpeaker Dialogue Colorizer",
   "name": "MultiSpeakerColorizer",
-  "version": "1.5",
+  "version": "2.0",
   "description": "Colors dialogues per speaker in multi-character responses using consistent pastel colors based on name hash. Only colors text inside quotes.",
   "requires": [],
   "author": "ImJCyo",
   "js": "script.js"
 
 }
+
 
 
