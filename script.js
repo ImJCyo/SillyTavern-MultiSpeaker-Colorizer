@@ -20,8 +20,6 @@ async function initializeMSC() {
     }
 
     let globalActiveSpeaker = "Narrator";
-    
-    // UPDATED: Now strips punctuation like commas and colons
     const normalize = (str) => str.toLowerCase().replace(/['’'"`*.,!?;:]/g, '').trim();
 
     function processTextNodes(node, color) {
@@ -59,12 +57,8 @@ async function initializeMSC() {
 
         blocks.forEach((block, index) => {
             const blockText = block.innerText.trim();
-            // REMOVE QUOTES to avoid detecting names inside spoken dialogue
             const narrationOnly = blockText.replace(/["“”][^"“”]*["“”]/g, ' '); 
-            
-            // UPDATED TOKENIZER: Splits by space, then cleans every token using the strict normalizer
             const words = narrationOnly.split(/\s+/).map(w => normalize(w));
-            
             const ignorePreps = ['to', 'at', 'with', 'and', 'is', 'was', 'for', 'about', 'of', 'from', 'than', 'like'];
 
             let foundNewSpeaker = false;
@@ -72,8 +66,6 @@ async function initializeMSC() {
                 const aliases = names.split(',').map(n => normalize(n));
                 for (const alias of aliases) {
                     const aliasIndex = words.indexOf(alias);
-                    
-                    // CHECK: formatting ensures "Kita," becomes "kita" and matches "kita"
                     if (aliasIndex !== -1) {
                         const prevWord = words[aliasIndex - 1] || "";
                         if (!ignorePreps.includes(prevWord)) {
@@ -112,6 +104,7 @@ async function initializeMSC() {
                 .msc-section-label { font-size: 0.85em; opacity: 0.7; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; display: block; }
                 .msc-tool-btn { padding: 8px; background: #444; color: #fff; border: 1px solid #666; cursor: pointer; border-radius: 4px; font-size: 0.85em; flex: 1; }
                 .msc-active-badge { background: var(--bracket-color); color: white; padding: 3px 10px; border-radius: 12px; font-size: 0.8em; margin-left: 10px; font-weight: bold; }
+                .msc-help { cursor: help; opacity: 0.6; font-size: 0.9em; margin-left: 5px; }
             </style>
             <div class="inline-drawer">
                 <div class="inline-drawer-header">
@@ -119,39 +112,41 @@ async function initializeMSC() {
                     <span id="msc-active-indicator" class="msc-active-badge">${globalActiveSpeaker}</span>
                 </div>
                 <div class="inline-drawer-content msc-box" style="display:none;">
-                    <span class="msc-section-label">User Shield</span>
-                    <input type="text" id="msc-user" class="text_pole" style="width:100%; margin-bottom:15px;" value="${settings.userName}" />
+                    
+                    <span class="msc-section-label">General Settings</span>
+                    <label>User Shield <span class="msc-help" title="Enter your persona name here. The script will NEVER colorize messages sent by this name.">ⓘ</span></label>
+                    <input type="text" id="msc-user" class="text_pole" style="width:100%; margin-top:5px; margin-bottom:15px;" value="${settings.userName}" />
                     
                     <span class="msc-section-label">Profile Management</span>
                     <div class="msc-row">
                         <select id="msc-prof" class="text_pole" style="flex:2;">
                             ${Object.keys(settings.profiles).map(p => `<option value="${p}" ${p === settings.activeProfile ? 'selected' : ''}>${p}</option>`).join('')}
                         </select>
-                        <button id="msc-del-prof" class="menu_button" style="color:#ff5f5f;">✕</button>
+                        <button id="msc-del-prof" class="menu_button" style="color:#ff5f5f;" title="Delete Profile">✕</button>
                     </div>
                     <div class="msc-row">
                         <button id="msc-new" class="menu_button" style="flex:1;">+ New</button>
                         <button id="msc-ren" class="menu_button" style="flex:1;">Rename</button>
                     </div>
 
-                    <span class="msc-section-label" style="margin-top:15px;">Characters</span>
+                    <span class="msc-section-label" style="margin-top:15px;">Characters <span class="msc-help" title="Format: Name,Alias (e.g. 'Gandalf,Mithrandir'). Text will be colored AFTER one of these names appears in narration.">ⓘ</span></span>
                     <div id="msc-list"></div>
                     <button id="msc-add" class="menu_button" style="width:100%; margin-top:10px;">+ Add Character</button>
                     
                     <hr style="opacity:0.1; margin: 20px 0;">
 
                     <div style="display:flex; gap:8px; margin-bottom:10px;">
-                        <button id="msc-exp" class="msc-tool-btn">Export</button>
-                        <button id="msc-imp" class="msc-tool-btn">Import</button>
+                        <button id="msc-exp" class="msc-tool-btn">Export JSON</button>
+                        <button id="msc-imp" class="msc-tool-btn">Import JSON</button>
                     </div>
                     <button id="msc-reset" class="msc-tool-btn" style="width:100%; background:#633; margin-bottom:10px;">Factory Reset</button>
 
                     <div style="display:flex; align-items:center; gap:10px;">
                         <input type="checkbox" id="msc-log" ${settings.loggingEnabled ? 'checked' : ''}>
-                        <label for="msc-log" style="font-size:0.9em;">Debug Logs</label>
+                        <label for="msc-log" style="font-size:0.9em;">Debug Logs <span class="msc-help" title="Writes detection logic to the browser console (F12). Useful for troubleshooting missed colors.">ⓘ</span></label>
                     </div>
 
-                    <button id="msc-apply" class="menu_button" style="width:100%; background:var(--bracket-color); margin-top:15px; font-weight:bold;">Apply and Refresh</button>
+                    <button id="msc-apply" class="menu_button" style="width:100%; background:var(--bracket-color); margin-top:15px; font-weight:bold;">Apply to Recent (20)</button>
                     <input type="file" id="msc-f" style="display:none" />
                 </div>
             </div>`;
@@ -240,12 +235,9 @@ async function initializeMSC() {
         clearTimeout(scanTimeout);
         scanTimeout = setTimeout(() => {
             const messages = Array.from(document.querySelectorAll('.mes_text'));
-            // FIXED: Limit 'Apply' to last 3 messages, and auto-scan to last 3.
             const limit = force ? 3 : 3;
             const targets = messages.slice(-limit);
-            
             if (settings.loggingEnabled && force) console.log(`[MSC] Force Scan: Processing last ${targets.length} messages.`);
-            
             targets.forEach(m => {
                 if (force) m.classList.remove('msc-processed');
                 colorizeMessage(m);
