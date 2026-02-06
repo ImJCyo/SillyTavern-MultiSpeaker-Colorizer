@@ -1,15 +1,18 @@
-# SillyTavern Multi-Speaker Colorizer
+# SillyTavern Multi-Speaker Colorizer v2.0
 
 A robust, lightweight JavaScript extension for SillyTavern designed to colorize dialogue based on the character currently speaking. It features high-precision targeting for semantic `<q>` tags and standard quotation marks, ensuring your roleplay remains immersive and visually organized.
 
 ## 🚀 Features
 
 - **💎 Zero Token Cost:** This extension is entirely client-side. It does not add anything to your prompt or context window, meaning you get beautiful colorization without sacrificing performance or memory.
-- **⚡ High-Performance Lazy Loading:** Uses an `IntersectionObserver` to only colorize messages as they scroll into view. This keeps the UI snappy even in chats with thousands of messages.
-- **Multi-Character Support:** Assign unique hex colors to different characters you specify by name.
-- **Profile Management:** Create, rename, and switch between different color profiles for different world-states or RP cards.
-- **Semantic Tag Awareness:** Specifically designed to work with SillyTavern’s `<q>` (Quotation) tags and nested `<em>` (italics) tags.
-- **Contextual Memory:** Intelligently tracks the speaker across paragraphs, ensuring dialogue remains colored even if a name isn't mentioned in every block.
+- **🛡️ User Shield:** Define your persona name to prevent the script from accidentally coloring your own messages or actions.
+- **⚡ Smart Context Scanning:** Automatically scans the last 3 messages for instant updates during chat, while the "Apply" button performs a deep scan of the last 20 messages to fix history.
+- **🧠 Persistent Context Logic:** Intelligently tracks the active speaker across multiple paragraphs. If a character starts a long monologue, the color stays locked until a new speaker is explicitly named.
+- **✨ Punctuation Agnostic:** Features a strict normalizer that handles names with attached punctuation (e.g., `"Kita,"`, `"Gandalf!"`), ensuring no speaker is missed.
+- **📂 Advanced Profile Management:**
+    - **Multiple Profiles:** Switch instantly between color schemes for different RPs.
+    - **Import/Export:** Share your color configs as JSON files.
+    - **Factory Reset:** Quickly restore default settings if things get messy.
 
 ## 🛠️ Installation
 
@@ -24,19 +27,36 @@ The easiest way to install this extension is directly through SillyTavern:
 
 ## ⚙️ Configuration
 
-- **Enable/Disable Logging:** Toggle Console (F12) logging on or off.
-- **Add Character:** Enter the character's name exactly as it appears in the chat and select a color.
-- **Apply & Save:** Use the "Apply & Save" button to immediately commit all profile changes to SillyTavern's storage, and scan back 3 messages to apply your new color choices.
+Open the **Extensions** menu and expand the **Multi-Speaker Colorizer** drawer.
 
-## 📁 Profile Sharing (Import/Export)
+### 1. General Settings
+* **User Shield:** Enter your persona/user name here. The script will ignore any message header that matches this name.
 
-This extension allows you to share specific character color setups as standalone JSON files:
+### 2. Profile Management
+* **Active Profile:** Select your current color scheme from the dropdown.
+* **New / Rename:** Create a fresh profile or rename the current one.
+* **Export/Import:** Backup your profiles to JSON or load a friend's config.
 
-- **Export Profile:** Exports only the *currently selected* profile. Perfect for sharing your specific "Character Pack" with others.
-- **Import Profile:** Choose a `.json` file to add to your list. You will be prompted to name the new profile upon import.
+### 3. Character Mapping
+* **Add Character:** Click `+ Add Character`.
+* **Name Format:** Enter the names to watch for. You can use comma-separated aliases.
+    * *Example:* `Gandalf,Mithrandir,Greybeard`
+    * *Effect:* If any of these names appear in the narration text, the dialogue color will update to your chosen hex code.
+
+### 4. Debugging
+* **Debug Logs:** Check this box to print logic to the browser console (F12). Useful if a character isn't coloring and you want to see exactly which word the script is failing to match.
 
 ## 🧠 How it Works (Client-Side)
-Unlike "World Info" or "Author's Notes" which are sent to the AI, this script runs locally in your browser after the message has already been generated. It scans the rendered HTML of the chat and applies CSS styling on the fly. This ensures:
-1. No extra cost per message.
-2. No interference with the AI's logic or personality.
-3. Instant visual updates.
+Unlike "World Info" or "Author's Notes" which are sent to the AI, this script runs locally in your browser after the message has already been rendered.
+
+1.  **Sanitization:** It strips text of smart quotes and punctuation to create a "clean" token list.
+2.  **Detection:** It scans the narration text (text *outside* quotes) for known character names.
+3.  **Application:** It wraps dialogue in styled `<span>` tags without modifying the actual message content in your chat logs.
+
+## ⚠️ Compatibility Note
+This extension is designed to work safely alongside other DOM-manipulating extensions (like Wordsight). It uses a "safe renderer" that checks for existing styles before applying new ones to prevent conflicts.
+
+---
+
+### **Need to reset?**
+If your profiles become corrupted or the UI isn't loading, use the red **Factory Reset** button in the extension panel to wipe settings back to the safe defaults.
