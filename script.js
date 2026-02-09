@@ -146,7 +146,7 @@ async function initializeMSC() {
                         <label for="msc-log" style="font-size:0.9em;">Debug Logs <span class="msc-help" title="Writes detection logic to the browser console (F12). Useful for troubleshooting missed colors.">ⓘ</span></label>
                     </div>
 
-                    <button id="msc-apply" class="menu_button" style="width:100%; background:var(--bracket-color); margin-top:15px; font-weight:bold;">Apply to Recent (20)</button>
+                    <button id="msc-apply" class="menu_button" style="width:100%; background:var(--bracket-color); margin-top:15px; font-weight:bold;">Apply to Recent (3)</button>
                     <input type="file" id="msc-f" style="display:none" />
                 </div>
             </div>`;
