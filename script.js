@@ -20,7 +20,14 @@ async function initializeMSC() {
     }
 
     let globalActiveSpeaker = "Narrator";
-    const normalize = (str) => str.toLowerCase().replace(/['’'"`*.,!?;:]/g, '').trim();
+
+    // UPDATED: Now strips possessive 's and additional brackets/hyphens
+    const normalize = (str) => {
+        return str.toLowerCase()
+            .replace(/['’]s/g, '')          // Remove 's (Raye's -> Raye)
+            .replace(/['’'"`*.,!?;:()\[\]-]/g, '') // Remove all other punctuation
+            .trim();
+    };
 
     function processTextNodes(node, color) {
         if (node.nodeType === Node.TEXT_NODE) {
@@ -46,6 +53,7 @@ async function initializeMSC() {
         const headerElement = messageWrapper?.querySelector('.ch_name, .name_text');
         const headerNormalized = normalize(headerElement ? headerElement.innerText.split('\n')[0] : "");
 
+        // USER SHIELD: If header matches user, skip entirely
         if (headerNormalized === myName) {
             container.classList.add('msc-processed');
             return; 
@@ -58,6 +66,8 @@ async function initializeMSC() {
         blocks.forEach((block, index) => {
             const blockText = block.innerText.trim();
             const narrationOnly = blockText.replace(/["“”][^"“”]*["“”]/g, ' '); 
+            
+            // Normalize tokens using the new possessive-safe logic
             const words = narrationOnly.split(/\s+/).map(w => normalize(w));
             const ignorePreps = ['to', 'at', 'with', 'and', 'is', 'was', 'for', 'about', 'of', 'from', 'than', 'like'];
 
@@ -91,6 +101,7 @@ async function initializeMSC() {
         if (indicator) indicator.innerText = globalActiveSpeaker;
     }
 
+    // --- UI RENDERER (v2.8 Layout) ---
     function renderUI() {
         const target = document.querySelector('#extensions_settings');
         if (!target || document.querySelector('.msc-settings-wrapper')) return;
@@ -129,7 +140,7 @@ async function initializeMSC() {
                         <button id="msc-ren" class="menu_button" style="flex:1;">Rename</button>
                     </div>
 
-                    <span class="msc-section-label" style="margin-top:15px;">Characters <span class="msc-help" title="Format: Name,Alias (e.g. 'Gandalf,Mithrandir'). Text will be colored AFTER one of these names appears in narration.">ⓘ</span></span>
+                    <span class="msc-section-label" style="margin-top:15px;">Characters <span class="msc-help" title="Format: Name,Alias. Now supports possessives automatically (e.g. 'Raye's' matches 'Raye').">ⓘ</span></span>
                     <div id="msc-list"></div>
                     <button id="msc-add" class="menu_button" style="width:100%; margin-top:10px;">+ Add Character</button>
                     
@@ -143,7 +154,7 @@ async function initializeMSC() {
 
                     <div style="display:flex; align-items:center; gap:10px;">
                         <input type="checkbox" id="msc-log" ${settings.loggingEnabled ? 'checked' : ''}>
-                        <label for="msc-log" style="font-size:0.9em;">Debug Logs <span class="msc-help" title="Writes detection logic to the browser console (F12). Useful for troubleshooting missed colors.">ⓘ</span></label>
+                        <label for="msc-log" style="font-size:0.9em;">Debug Logs</label>
                     </div>
 
                     <button id="msc-apply" class="menu_button" style="width:100%; background:var(--bracket-color); margin-top:15px; font-weight:bold;">Apply to Recent (3)</button>
@@ -235,7 +246,7 @@ async function initializeMSC() {
         clearTimeout(scanTimeout);
         scanTimeout = setTimeout(() => {
             const messages = Array.from(document.querySelectorAll('.mes_text'));
-            const limit = force ? 3 : 3;
+            const limit = force ? 20 : 3;
             const targets = messages.slice(-limit);
             if (settings.loggingEnabled && force) console.log(`[MSC] Force Scan: Processing last ${targets.length} messages.`);
             targets.forEach(m => {
